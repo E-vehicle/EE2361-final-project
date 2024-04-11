@@ -1,19 +1,3 @@
-/*
-  Knock Sensor
-
-  This sketch reads a piezo element to detect a knocking sound.
-  It reads an analog pin and compares the result to a set threshold.
-  If the result is greater than the threshold, it writes "knock" to the serial
-  port, and toggles the LED on pin 13.
-
-  The circuit:
-	- positive connection of the piezo attached to analog in 0
-	- negative connection of the piezo attached to ground
-	- 1 megohm resistor attached from analog in 0 to ground
-
-*/
-
-
 // these constants won't change:
 const int ledPin = 13;       // LED connected to digital pin 13
 const int knockSensor = A0;  // the piezo is connected to analog pin 0
@@ -25,8 +9,34 @@ int sensorReading = 0;  // variable to store the value read from the sensor pin
 int ledState = LOW;     // variable used to store the last LED status, to toggle the light
 
 void setup() {
-  pinMode(ledPin, OUTPUT);  // declare the ledPin as as OUTPUT
-  Serial.begin(9600);       // use the serial port
+    CLKDIVbits.RCDIV = 0;  //Set RCDIV=1:1 (default 2:1) 32MHz or FCY/2=16M
+	AD1PCFG = 0x9fff;            //sets all pins to digital I/O
+    TRISBbits.TRISB15 = 0;      // Green LED output
+    TRISBbits.TRISB14 = 0;      // Yellow LED output
+    TRISBbits.TRISB13 = 0;      // Red LED output
+    TRISBbits.TRISB6 = 0;       // Servo motor output
+    
+    TRISBbits.TRISB8 = 1;       // Button input
+    TRISBbits.TRISB7 = 1;       // Piezo input
+	LATA = 0xffff;               //Set all of port A to HIGH
+	LATB = 0xffff;               //and all of port B to HIGH
+}
+
+void initServo(void) {
+    T3CON = 0x0010;
+    TMR3 = 0;
+    PR3 = 40000;
+    T3CONbits.TON = 1;
+    
+    __builtin_write_OSCCONL(OSCCON & 0xbf);
+    RPOR3bits.RP6R = 18;
+    __builtin_write_OSCCONL(OSCCON | 0x40);
+    
+    OC1CON = 0;    // turn off OC1 for now
+    OC1R = 1234;   // servo start position. We won?t touch OC1R again
+    OC1RS = 1234;  // We will only change this once PWM is turned on
+    OC1CONbits.OCTSEL = 1; // Use Timer 3 for compare source
+    OC1CONbits.OCM = 0b110; // Output compare PWM w/o faults
 }
 
 void loop() {
