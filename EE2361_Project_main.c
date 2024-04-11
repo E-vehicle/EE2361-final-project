@@ -1,4 +1,4 @@
-#include "xc.h"
+o#include "xc.h"
 #include "Servo.h"
 
 #pragma config ICS = PGx1          // Comm Channel Select (Emulator EMUC1/EMUD1 pins are shared with PGC1/PGD1)
@@ -56,7 +56,7 @@ void setup() {
 	LATB = 0xffff;              // and all of port B to HIGH
 }
 
-void initPushButton(void) {
+void initPiezo(void) {
     // Configure Timer 2 (500ns / count, 25ms max).
     // note that resolution = 500ns = 8 x 62.5ns, max period = 25ms = Tcy * 8 * 50,000
     
