@@ -14,6 +14,12 @@
                                        // Fail-Safe Clock Monitor is enabled)
 #pragma config FNOSC = FRCPLL      // Oscillator Select (Fast RC Oscillator with PLL module (FRCPLL))
 
+volatile unsigned long int sec = 0;
+void __attribute__((interrupt, auto_psv)) _T2Interrupt(void) { 
+    _T2IF = 0;
+    sec++;
+}
+
 volatile unsigned long int buffer[3];
 volatile unsigned int bufferPlace = 0;
 
@@ -44,41 +50,39 @@ void setup() {
     TRISBbits.TRISB13 = 0;      // Red LED output
     TRISBbits.TRISB6 = 0;       // Servo motor output
     
-    TRISBbits.TRISB8 = 1;       // Button input
-    TRISBbits.TRISB7 = 1;       // Piezo input
+    // TRISBbits.TRISB7 = 1;       // Button input IF WE WANT TO ADD BUTTON
+    TRISBbits.TRISB8 = 1;       // Piezo input
 	LATA = 0xffff;              // Set all of port A to HIGH
 	LATB = 0xffff;              // and all of port B to HIGH
 }
 
-void initServo(void) {
-    T3CON = 0x0010;
-    TMR3 = 0;
-    PR3 = 40000;
-    T3CONbits.TON = 1;
+void initPushButton(void) {
+    // Configure Timer 2 (500ns / count, 25ms max).
+    // note that resolution = 500ns = 8 x 62.5ns, max period = 25ms = Tcy * 8 * 50,000
     
     __builtin_write_OSCCONL(OSCCON & 0xbf);
-    RPOR3bits.RP6R = 18;
+    RPINR7bits.IC1R = 8;
     __builtin_write_OSCCONL(OSCCON | 0x40);
     
-    OC1CON = 0;    // turn off OC1 for now
-    OC1R = 1234;   // servo start position. We won?t touch OC1R again
-    OC1RS = 1234;  // We will only change this once PWM is turned on
-    OC1CONbits.OCTSEL = 1; // Use Timer 3 for compare source
-    OC1CONbits.OCM = 0b110; // Output compare PWM w/o faults
-}
-
-void loop() {
-  // read the sensor and store it in the variable sensorReading:
-  sensorReading = analogRead(knockSensor);
-
-  // if the sensor reading is greater than the threshold:
-  if (sensorReading >= threshold) {
-    // toggle the status of the ledPin:
-    ledState = !ledState;
-    // update the LED pin itself:
-    digitalWrite(ledPin, ledState);
-    // send the string "Knock!" back to the computer, followed by newline
-    Serial.println("Knock!");
-  }
-  delay(100);  // delay to avoid overloading the serial port buffer
+    T2CONbits.TON = 0;
+    T2CONbits.TCKPS = 0b11;
+    T2CONbits.TCS = 0b0;
+    T2CONbits.TGATE = 0b0;
+    TMR2 = 0;
+    // Initialize to zero (also best practice)
+    PR2 = 0xF424; // Set period to one second
+    T2CONbits.TON = 1; // Start 16-bit Timer2
+    
+    // Initialize the Input Capture Module
+    IC1CONbits.ICTMR = 1; // Select Timer2 as the IC1 Time base
+    IC1CONbits.ICI = 0b00; // Interrupt on every capture event
+    IC1CONbits.ICM = 0b011; // Generate capture event on every Rising edge
+    // Enable Capture Interrupt And Timer2
+    
+    IPC0bits.IC1IP = 1; // Setup IC1 interrupt priority level
+    IFS0bits.IC1IF = 0; // Clear IC1 Interrupt Status Flag
+    IEC0bits.IC1IE = 1; // Enable IC1 interrupt
+    
+    IFS0bits.T2IF = 0; // Clear IC1 Interrupt Status Flag
+    IEC0bits.T2IE = 1; // Enable IC1 interrupt
 }
