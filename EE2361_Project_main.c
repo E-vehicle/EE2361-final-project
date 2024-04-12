@@ -1,4 +1,4 @@
-o#include "xc.h"
+#include "xc.h"
 #include "Servo.h"
 
 #pragma config ICS = PGx1          // Comm Channel Select (Emulator EMUC1/EMUD1 pins are shared with PGC1/PGD1)
@@ -28,18 +28,21 @@ volatile unsigned long int lastEventTime = 0;
 volatile unsigned long int tripleClickTime = 0;
 volatile unsigned int interruptVar = 0;
 void __attribute__((interrupt, auto_psv)) _IC1Interrupt(void) {
-   _IC1IF = 0;
-   eventTime = IC1BUF + (sec*62500L);
-   if ((eventTime - lastEventTime) > 125) {
-        buffer[bufferPlace] = eventTime;
-        bufferPlace = (bufferPlace + 1) % 3;
-        if ((eventTime - buffer[bufferPlace]) < 40000) {
-            setServo(3000);
-            tripleClickTime = eventTime;
-        }
-   }
-   lastEventTime = eventTime;
-   interruptVar = interruptVar + 1;
+	_IC1IF = 0;
+	eventTime = IC1BUF + (sec*62500L);
+   // if ((eventTime - lastEventTime) > 125) {
+   //      buffer[bufferPlace] = eventTime;
+   //      bufferPlace = (bufferPlace + 1) % 3;
+   //      if ((eventTime - buffer[bufferPlace]) < 40000) {
+   //          setServo(3000);
+   //          tripleClickTime = eventTime;
+   //      }
+   // }
+   // lastEventTime = eventTime;
+	LATBbits.LATB14 = 0;
+	delay(1000);
+	LATBbits.LATB14 = 1;
+   	interruptVar = interruptVar + 1;
 }
 
 void setup() {
@@ -52,8 +55,10 @@ void setup() {
     
     // TRISBbits.TRISB7 = 1;       // Button input IF WE WANT TO ADD BUTTON
     TRISBbits.TRISB8 = 1;       // Piezo input
-	LATA = 0xffff;              // Set all of port A to HIGH
-	LATB = 0xffff;              // and all of port B to HIGH
+	LATBbits.LATB14 = 0;              // and all of port B to HIGH
+
+	initPiezo();
+	initServo();
 }
 
 void initPiezo(void) {
@@ -85,4 +90,20 @@ void initPiezo(void) {
     
     IFS0bits.T2IF = 0; // Clear IC1 Interrupt Status Flag
     IEC0bits.T2IE = 1; // Enable IC1 interrupt
+}
+
+void delay(unsigned int ms) {
+    int i;
+    for (i = 0; i < ms; i++) {
+        asm("repeat #15993");
+        asm("nop");
+    }
+    return;
+}
+
+int main(void) {
+	setup();
+	setServo(3600);
+	while (1);
+	return 0;
 }
