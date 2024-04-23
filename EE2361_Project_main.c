@@ -39,9 +39,9 @@ void __attribute__((interrupt, auto_psv)) _IC1Interrupt(void) {
    //      }
    // }
    // lastEventTime = eventTime;
-	LATBbits.LATB14 = 0;
-	delay(1000);
 	LATBbits.LATB14 = 1;
+	delay(1000);
+	LATBbits.LATB14 = 0;
    	interruptVar = interruptVar + 1;
 }
 
