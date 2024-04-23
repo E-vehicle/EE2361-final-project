@@ -30,15 +30,15 @@ volatile unsigned int interruptVar = 0;
 void __attribute__((interrupt, auto_psv)) _IC1Interrupt(void) {
 	_IC1IF = 0;
 	eventTime = IC1BUF + (sec*62500L);
-   // if ((eventTime - lastEventTime) > 125) {
-   //      buffer[bufferPlace] = eventTime;
-   //      bufferPlace = (bufferPlace + 1) % 3;
-   //      if ((eventTime - buffer[bufferPlace]) < 40000) {
-   //          setServo(3000);
-   //          tripleClickTime = eventTime;
-   //      }
-   // }
-   // lastEventTime = eventTime;
+   if ((eventTime - lastEventTime) > 350) { // formerly 125 now 350
+        buffer[bufferPlace] = eventTime;
+        bufferPlace = (bufferPlace + 1) % 3;
+        if ((eventTime - buffer[bufferPlace]) < 60000) { // formerly 40000 now 60000
+            setServo(3000);
+            tripleClickTime = eventTime;
+        }
+   }
+   lastEventTime = eventTime;
 	LATBbits.LATB14 = 1;
 	delay(1000);
 	LATBbits.LATB14 = 0;
@@ -104,6 +104,16 @@ void delay(unsigned int ms) {
 int main(void) {
 	setup();
 	setServo(3600);
-	while (1);
+	while (1) {
+        if ((TMR2 + (sec*62500L) - tripleClickTime) > (PR2*3)) {
+            setServo(3600);
+			LATBbits.LATB13 = 1;
+			delay(1000);
+			LATBbits.LATB13 = 0;
+        }
+        else {
+            setServo(3000);
+        }
+    }
 	return 0;
 }
