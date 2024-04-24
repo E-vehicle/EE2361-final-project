@@ -27,31 +27,89 @@ volatile unsigned long int eventTime = 0;
 volatile unsigned long int lastEventTime = 0;
 volatile unsigned long int tripleClickTime = 0;
 volatile unsigned int interruptVar = 0;
-void __attribute__((interrupt, auto_psv)) _IC1Interrupt(void) {
-	_IC1IF = 0;
-	eventTime = IC1BUF + (sec*62500L);
-   if ((eventTime - lastEventTime) > 350) { // formerly 125 now 350
-        buffer[bufferPlace] = eventTime;
-        bufferPlace = (bufferPlace + 1) % 3;
-        if ((eventTime - buffer[bufferPlace]) < 60000) { // formerly 40000 now 60000
+volatile unsigned int conditionMetCount = 0;
+volatile unsigned long int lastRecordedEventTime = 0;
+
+void __attribute__ ((__interrupt__)) _AD1C1Interrupt(void) {
+    _AD1IF = 0;
+    
+    int adValue = ADC1BUF0;
+    eventTime = IC1BUF + (sec*62500L);
+    
+    // Check if the ADC value is outside the bounds
+    if (adValue < -100 || adValue > 100) {
+        // Increment the count of times the condition is met
+        conditionMetCount++;
+        
+        // Record the time of the event
+        lastRecordedEventTime = eventTime;
+        
+        // Check if the condition has been met three times within the specified time frame
+        if (conditionMetCount >= 3 && (eventTime - tripleClickTime) > 300000) {
+            // Perform actions when the condition is met three times
             setServo(3000);
             tripleClickTime = eventTime;
+            LATBbits.LATB13 = 0;
+            LATBbits.LATB15 = 1;
+            delay(2000);
+            LATBbits.LATB15 = 0;
+            LATBbits.LATB13 = 1;
+            buffer[0] = 0;
+            buffer[1] = 0;
+            buffer[2] = 0;
+            // Reset the count of times the condition is met
+            conditionMetCount = 0;
+            return;
         }
-   }
-   lastEventTime = eventTime;
-	LATBbits.LATB14 = 1;
-	delay(1000);
-	LATBbits.LATB14 = 0;
-   	interruptVar = interruptVar + 1;
+    } else {
+        // Reset the count of times the condition is met if the value is within bounds
+        conditionMetCount = 0;
+    }
+    
+    // Your existing code for handling the case when the value is within bounds
+    if ((eventTime - lastEventTime) > 50000) {
+        buffer[bufferPlace] = eventTime;
+        bufferPlace = (bufferPlace + 1) % 3;
+        if (((eventTime - buffer[bufferPlace]) < 300000)) {
+            setServo(3000);
+            tripleClickTime = eventTime;
+            LATBbits.LATB13 = 0;
+            LATBbits.LATB15 = 1;
+            delay(2000);
+            LATBbits.LATB15 = 0;
+            LATBbits.LATB13 = 1;
+            buffer[0] = 0;
+            buffer[1] = 0;
+            buffer[2] = 0;
+            return;
+        }
+    }
+    
+    LATBbits.LATB14 = 1;
+    delay(100);
+    LATBbits.LATB14 = 0;
+    lastEventTime = eventTime;
 }
 
 void setup() {
+	
     CLKDIVbits.RCDIV = 0;  //Set RCDIV=1:1 (default 2:1) 32MHz or FCY/2=16M
-	AD1PCFG = 0x9fff;            //sets all pins to digital I/O
+    AD1PCFG = 0x9fff;            //sets all pins to digital I/O
     TRISBbits.TRISB15 = 0;      // Green LED output
     TRISBbits.TRISB14 = 0;      // Yellow LED output
     TRISBbits.TRISB13 = 0;      // Red LED output
     TRISBbits.TRISB6 = 0;       // Servo motor output
+    AD1CON1bits.SSRC = 0b010;
+    
+    AD1CON2 = 0;
+    AD1CON3bits.SAMC = 0b101;
+    AD1CHS = 0;
+    AD1CSSL = 0;
+    AD1PCFGbits.PCFG0 = 0;
+    TRISAbits.TRISA0 = 1;
+    IFS0bits.AD1IF = 0;
+    IEC0bits.AD1IE = 1;
+    AD1CON1bits.ADON = 1; //turn it on
     
     // TRISBbits.TRISB7 = 1;       // Button input IF WE WANT TO ADD BUTTON
     TRISBbits.TRISB8 = 1;       // Piezo input
