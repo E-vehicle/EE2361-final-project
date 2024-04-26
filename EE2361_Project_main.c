@@ -25,47 +25,50 @@ void __attribute__((interrupt, auto_psv)) _T2Interrupt(void) {
 #define LOUD_THRESHOLD 0
 
 // Define variables to keep track of the current state of the sequence
-int sequence_index = 0;
+int state = 0;
 int sequence[] = {SOFT_THRESHOLD, LOUD_THRESHOLD, SOFT_THRESHOLD};
 int sequence_length = sizeof(sequence) / sizeof(sequence[0]);
 int previous_adValue = -1; // Variable to store the previous ADC value
 
 void __attribute__ ((interrupt, auto_psv)) _ADC1Interrupt(void) {
     int adValue = ADC1BUF0;
-
+    
     // Check if the current value is greater than 1 and has changed
     if (adValue > 1 && adValue != previous_adValue) {
         // Check if the current value matches the expected value in the sequence
         if (check_sequence(adValue)) {
             // If the current value matches the expected value in the sequence
-            sequence_index++; // Move to the next element in the sequence
-            if (sequence_index >= sequence_length) {
-                LATBbits.LATB13 = 1;
-                delay(500);
+            state++; // Move to the next element in the sequence
+            if (state >= sequence_length) {
                 LATBbits.LATB13 = 0;
-                sequence_index = 0;
+                LATBbits.LATB15 = 1;
+                setServo(3000);
                 return;
             }
-        } else {
+        } 
+        else if(state == 1 && adValue > LOUD_THRESHOLD && adValue < SOFT_THRESHOLD){
+            state = 1;
+        }
+        else {
             // If the current value does not match the expected value in the sequence
             // Reset the sequence index to start over
-            sequence_index = 0;
+            state = 0;
         }
     }
 
     // Perform your existing code based on adValue
     if (adValue >= 50) {
         LATBbits.LATB14 = 1;
-        delay(500);
+        delay(250);
+        LATBbits.LATB14 = 0;
+        delay(250);
+        LATBbits.LATB14 = 1;
+        delay(250);
         LATBbits.LATB14 = 0;
     } else if (adValue > 0 && adValue < 50) {
-        LATBbits.LATB15 = 1;
-        delay(500);
-        LATBbits.LATB15 = 0;
-    } else if (adValue >= 50) {
-        LATBbits.LATB13 = 1;
-        delay(500);
-        LATBbits.LATB13 = 0;
+        LATBbits.LATB14 = 1;
+        delay(750);
+        LATBbits.LATB14 = 0;
     }
 
     // Update the previous ADC value
@@ -74,9 +77,10 @@ void __attribute__ ((interrupt, auto_psv)) _ADC1Interrupt(void) {
     _AD1IF = 0; // Clear ADC interrupt flag
 }
 
+
 // Function to check if the current value matches the expected value in the sequence
 int check_sequence(int adValue) {
-    switch (sequence_index) {
+    switch (state) {
         case 0:
             return (adValue > LOUD_THRESHOLD && adValue < SOFT_THRESHOLD);
         case 1:
@@ -102,8 +106,9 @@ void setup() {
     
     
     
-    // TRISBbits.TRISB7 = 1;       // Button input IF WE WANT TO ADD BUTTON
-    TRISBbits.TRISB8 = 1;       // Piezo input
+    TRISBbits.TRISB8 = 1;       // Button input
+    CNPU2bits.CN22PUE = 1;
+//    TRISBbits.TRISB8 = 1;       // Piezo input
 	LATBbits.LATB14 = 0;              // and all of port B to HIGH
 
 	initPiezo();
@@ -156,11 +161,17 @@ void delay(unsigned int ms) {
     return;
 }
 
+
 int main(void) {
 	setup();
-	setServo(3600);
+	setServo(5100);
+    LATBbits.LATB13 = 1;
 	while (1) {
-
+        if(PORTBbits.RB8 == 0){  //If button is pressed
+            setServo(5100);
+            LATBbits.LATB13 = 1;
+            LATBbits.LATB15 = 0;
+        }
     }
     return 0;
 }
