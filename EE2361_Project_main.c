@@ -14,39 +14,34 @@
                                        // Fail-Safe Clock Monitor is enabled)
 #pragma config FNOSC = FRCPLL      // Oscillator Select (Fast RC Oscillator with PLL module (FRCPLL))
 
-volatile unsigned long int sec = 0;
-void __attribute__((interrupt, auto_psv)) _T2Interrupt(void) { 
-    _T2IF = 0;
-    sec++;
-}
 
 // Define some constants for the threshold values
-#define SOFT_THRESHOLD 50
-#define LOUD_THRESHOLD 0
+#define SOFT_THRESHOLD 1
+#define LOUD_THRESHOLD 50
 
 // Define variables to keep track of the current state of the sequence
 int state = 0;
 int sequence[] = {SOFT_THRESHOLD, LOUD_THRESHOLD, SOFT_THRESHOLD};
 int sequence_length = sizeof(sequence) / sizeof(sequence[0]);
-int previous_adValue = -1; // Variable to store the previous ADC value
 
 void __attribute__ ((interrupt, auto_psv)) _ADC1Interrupt(void) {
     int adValue = ADC1BUF0;
     
     // Check if the current value is greater than 1 and has changed
-    if (adValue > 1 && adValue != previous_adValue) {
+    if (adValue > 1) {
         // Check if the current value matches the expected value in the sequence
         if (check_sequence(adValue)) {
             // If the current value matches the expected value in the sequence
             state++; // Move to the next element in the sequence
-            if (state >= sequence_length) {
+            if (state == sequence_length) {
                 LATBbits.LATB13 = 0;
                 LATBbits.LATB15 = 1;
                 setServo(3000);
+                state = 0;
                 return;
             }
         } 
-        else if(state == 1 && adValue > LOUD_THRESHOLD && adValue < SOFT_THRESHOLD){
+        else if(state == 1 && adValue > SOFT_THRESHOLD && adValue < LOUD_THRESHOLD){
             state = 1;
         }
         else {
@@ -65,14 +60,12 @@ void __attribute__ ((interrupt, auto_psv)) _ADC1Interrupt(void) {
         LATBbits.LATB14 = 1;
         delay(250);
         LATBbits.LATB14 = 0;
-    } else if (adValue > 0 && adValue < 50) {
+    } else if (adValue > 1 && adValue < 50) {
         LATBbits.LATB14 = 1;
         delay(750);
         LATBbits.LATB14 = 0;
     }
 
-    // Update the previous ADC value
-    previous_adValue = adValue;
 
     _AD1IF = 0; // Clear ADC interrupt flag
 }
@@ -82,11 +75,11 @@ void __attribute__ ((interrupt, auto_psv)) _ADC1Interrupt(void) {
 int check_sequence(int adValue) {
     switch (state) {
         case 0:
-            return (adValue > LOUD_THRESHOLD && adValue < SOFT_THRESHOLD);
+            return (adValue > SOFT_THRESHOLD && adValue < LOUD_THRESHOLD);
         case 1:
-            return (adValue >= SOFT_THRESHOLD);
+            return (adValue >= LOUD_THRESHOLD);
         case 2:
-            return (adValue > LOUD_THRESHOLD && adValue < SOFT_THRESHOLD);
+            return (adValue > SOFT_THRESHOLD && adValue < LOUD_THRESHOLD);
         default:
             return 0;
     }
