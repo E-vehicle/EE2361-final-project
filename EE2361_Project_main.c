@@ -1,3 +1,7 @@
+// EE2361 Final Project made by Henry Bull Lyon (bulll001), Rodrigo Bouroncle (bouro004), and Evan Graff (graff248)
+// This project is a functioning "Kock Lock" which detects the intensity of a knock on a piezo and if a correct
+// combination is detected it will unlock a servo, simulating a lock.
+
 #include "xc.h"
 #include "Servo.h"
 
