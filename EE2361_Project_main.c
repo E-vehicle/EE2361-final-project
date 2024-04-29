@@ -16,32 +16,34 @@
 
 
 // Define some constants for the threshold values
+// Thresholds determined by trial and error
 #define SOFT_THRESHOLD 1
 #define LOUD_THRESHOLD 50
 
 // Define variables to keep track of the current state of the sequence
 int state = 0;
-int sequence[] = {SOFT_THRESHOLD, LOUD_THRESHOLD, SOFT_THRESHOLD};
-int sequence_length = sizeof(sequence) / sizeof(sequence[0]);
+int sequence[] = {SOFT_THRESHOLD, LOUD_THRESHOLD, SOFT_THRESHOLD}; // put combination into this value
+int sequence_length = sizeof(sequence) / sizeof(sequence[0]); // calculates the sequence length of the combination
 
 void __attribute__ ((interrupt, auto_psv)) _ADC1Interrupt(void) {
     int adValue = ADC1BUF0;
     
-    // Check if the current value is greater than 1 and has changed
+    // Check if the current value is greater than 1
     if (adValue > 1) {
         // Check if the current value matches the expected value in the sequence
         if (check_sequence(adValue)) {
             // If the current value matches the expected value in the sequence
             state++; // Move to the next element in the sequence
-            if (state == sequence_length) {
-                LATBbits.LATB13 = 0;
-                LATBbits.LATB15 = 1;
-                setServo(3000);
-                state = 0;
+            if (state == sequence_length) { // this will run when correct sequence is inputted
+                LATBbits.LATB13 = 0; // turns off red light
+                LATBbits.LATB15 = 1; // turns on green light
+                setServo(3000); // sets the servo to unlocked
+                state = 0; // resets the locking code state to 0
                 return;
             }
         } 
-        else if(state == 1 && adValue > SOFT_THRESHOLD && adValue < LOUD_THRESHOLD){
+       // if you change the combonation you may need to add some more edge case detectors
+	else if(state == 1 && adValue > SOFT_THRESHOLD && adValue < LOUD_THRESHOLD){  // case where soft then soft is inputted instead of restarting state
             state = 1;
         }
         else {
@@ -51,7 +53,8 @@ void __attribute__ ((interrupt, auto_psv)) _ADC1Interrupt(void) {
         }
     }
 
-    // Perform your existing code based on adValue
+    // turns on lights to display if it is a soft or loud knock
+    // can be removed if you do not want to display it and then delay would be very small
     if (adValue >= 50) {
         LATBbits.LATB14 = 1;
         delay(250);
@@ -72,14 +75,16 @@ void __attribute__ ((interrupt, auto_psv)) _ADC1Interrupt(void) {
 
 
 // Function to check if the current value matches the expected value in the sequence
+// add switch states to create more inputs to the combination
+// change return values to cahnge up loud or soft
 int check_sequence(int adValue) {
     switch (state) {
         case 0:
-            return (adValue > SOFT_THRESHOLD && adValue < LOUD_THRESHOLD);
+            return (adValue > SOFT_THRESHOLD && adValue < LOUD_THRESHOLD); // soft knock
         case 1:
-            return (adValue >= LOUD_THRESHOLD);
+            return (adValue >= LOUD_THRESHOLD); // loud knock
         case 2:
-            return (adValue > SOFT_THRESHOLD && adValue < LOUD_THRESHOLD);
+            return (adValue > SOFT_THRESHOLD && adValue < LOUD_THRESHOLD); // soft knock
         default:
             return 0;
     }
@@ -87,7 +92,7 @@ int check_sequence(int adValue) {
 
 
 
-
+// function to setup inputs and outputs
 void setup() {
 	
     CLKDIVbits.RCDIV = 0;  //Set RCDIV=1:1 (default 2:1) 32MHz or FCY/2=16M
@@ -101,21 +106,20 @@ void setup() {
     
     TRISBbits.TRISB8 = 1;       // Button input
     CNPU2bits.CN22PUE = 1;
-//    TRISBbits.TRISB8 = 1;       // Piezo input
-	LATBbits.LATB14 = 0;              // and all of port B to HIGH
+    LATBbits.LATB14 = 0;        // and all of port B to HIGH
 
-	initPiezo();
-	initServo();
+    initPiezo();
+    initServo();
 }
 
+//function to initialize the Piezo
 void initPiezo(void) {
 
     T2CONbits.TON = 0;
     T2CONbits.TCKPS = 0b11;
     T2CONbits.TCS = 0b0;
     T2CONbits.TGATE = 0b0;
-    TMR2 = 0;
-    // Initialize to zero (also best practice)
+    TMR2 = 0;  // Initialize to zero (also best practice)
     PR2 = 0xF424; // Set period to one second
     T2CONbits.TON = 1; // Start 16-bit Timer2
 
@@ -132,7 +136,7 @@ void initPiezo(void) {
     
     AD1CON1bits.ASAM = 1;
     AD1CON2bits.SMPI = 0b0000;
-    AD1CON1bits.ADON = 1; //turn it on 
+    AD1CON1bits.ADON = 1; // turn it on 
     
     _AD1IF = 0;
     _AD1IE = 1;
@@ -154,16 +158,17 @@ void delay(unsigned int ms) {
     return;
 }
 
-
+// main function
 int main(void) {
 	setup();
-	setServo(5100);
-    LATBbits.LATB13 = 1;
+	setServo(5100); // initialize as locked
+    LATBbits.LATB13 = 1;  // initializes red light to indicate locked
 	while (1) {
-        if(PORTBbits.RB8 == 0){  //If button is pressed
-            setServo(5100);
-            LATBbits.LATB13 = 1;
-            LATBbits.LATB15 = 0;
+		
+            if(PORTBbits.RB8 == 0){  // if reset button is pressed
+            	setServo(5100); // lock the servo
+           	 LATBbits.LATB13 = 1; // turn red light on
+            	LATBbits.LATB15 = 0; // turn green light off
         }
     }
     return 0;
