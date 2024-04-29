@@ -42,7 +42,7 @@ void __attribute__ ((interrupt, auto_psv)) _ADC1Interrupt(void) {
                 return;
             }
         } 
-       // if you change the combonation you may need to add some more edge case detectors
+       // if you change the combination you may need to add some more edge case detectors
 	else if(state == 1 && adValue > SOFT_THRESHOLD && adValue < LOUD_THRESHOLD){  // case where soft then soft is inputted instead of restarting state
             state = 1;
         }
@@ -114,14 +114,6 @@ void setup() {
 
 //function to initialize the Piezo
 void initPiezo(void) {
-
-    T2CONbits.TON = 0;
-    T2CONbits.TCKPS = 0b11;
-    T2CONbits.TCS = 0b0;
-    T2CONbits.TGATE = 0b0;
-    TMR2 = 0;  // Initialize to zero (also best practice)
-    PR2 = 0xF424; // Set period to one second
-    T2CONbits.TON = 1; // Start 16-bit Timer2
 
     TRISAbits.TRISA0 = 1;
     
